@@ -9,7 +9,7 @@
 
 ## 1. Elevator Pitch
 
-CKA tells you two systems are "0.82 similar." But what does that mean? Are they linearly related with noise, or deeply nonlinearly entangled with coincidentally high kernel alignment? We propose Mapping Complexity Profiles (MCP) — a curve characterizing alignment as a function of mapping expressiveness — that reveals qualitative distinctions between architecture pairs invisible to scalar metrics. We validate MCP across four sequence architectures spanning attention, state-space, recurrent, and explicit delay-embedding paradigms, showing it captures task-dependent representational structure that CKA, nonlinear CKA, and RSA systematically miss.
+CKA tells you two systems are "0.82 similar." But what does that mean? Are they linearly related with noise, or deeply nonlinearly entangled with coincidentally high kernel alignment? We propose Mapping Complexity Profiles (MCP) — a curve characterizing alignment as a function of mapping expressiveness — that reveals qualitative distinctions between architecture pairs invisible to scalar metrics. We validate MCP across five sequence architectures spanning recurrent, attention, state-space, linear attention, and explicit delay-embedding paradigms, showing it captures task-dependent representational structure that CKA, nonlinear CKA, and RSA systematically miss.
 
 ---
 
@@ -19,13 +19,14 @@ CKA tells you two systems are "0.82 similar." But what does that mean? Are they 
 
 | Model | Type | Mechanism | Target Size | Why Include |
 |-------|------|-----------|------------|-------------|
+| LSTM-Small | Recurrent | Gated recurrence | 10-20M | Maximal compression baseline, trains fast, no installation issues |
 | GPT-2 Small (custom) | Transformer | Multi-head self-attention | 20-40M | Attention baseline, most studied |
 | Mamba-Small | State-space model | Selective state spaces | 20-40M | Linear-time SSM, extremely timely |
 | RWKV-Small | Linear attention / recurrent | Time-mixing + channel-mixing | 20-40M | Recurrent alternative |
 | Delay Embedding Model (DEM) | Explicit phase-space reconstruction | Exponential delay coordinates + learned projection | 10-20M | No attention, grounded in dynamical systems theory. Most novel inclusion. |
 
 **Seeds per architecture**: 5
-**Total training runs**: 20
+**Total training runs**: 25
 
 ### 2.2 The Delay Embedding Model (DEM) — Built from Scratch
 
@@ -237,9 +238,9 @@ For all architecture pairs at best-matching layers (defined as: the layer pair m
 
 Rank architecture pairs by Linearity Index. Test predicted ordering:
 1. Same architecture, different seed (highest L)
-2. Same mechanism family (GPT-2 vs. Pythia — both attention, different scale)
-3. Different mechanism, same paradigm (GPT-2 vs. Mamba — both learned on WikiText-103)
-4. Fundamentally different mechanism (GPT-2 vs. DEM — attention vs. delay embedding)
+2. Same mechanism family (GPT-2 vs. Pythia — both attention, different scale; LSTM vs. LSTM — both recurrent)
+3. Different mechanism, same paradigm (GPT-2 vs. Mamba — both learned on WikiText-103; LSTM vs. RWKV — both recurrent)
+4. Fundamentally different mechanism (GPT-2 vs. DEM — attention vs. delay embedding; LSTM vs. GPT-2 — recurrent vs. attention)
 
 **Statistical test**: Kruskal-Wallis test across hierarchy levels, followed by pairwise Mann-Whitney with Bonferroni correction.
 
@@ -315,16 +316,16 @@ The paper's theoretical motivation draws on the following established work, cite
 
 ### Weeks 2-3: Full Training
 
-- [ ] Train all 20 models (4 architectures × 5 seeds) on WikiText-103, full 1B tokens
+- [ ] Train all 25 models (5 architectures × 5 seeds) on WikiText-103, full 1B tokens
 - [ ] Parallelize: 2-4 models per GPU simultaneously if memory allows
 - [ ] Track validation perplexity for all models. Log training curves.
 - [ ] Download Pythia-410M and Pythia-160M from HuggingFace.
 
 ### Week 4: Extraction + MCP Computation
 
-- [ ] Extract Task A representations: 10,000 sentences × 22 models × all layers
-- [ ] Extract Task B representations: AG News test set × 22 frozen models × all layers
-- [ ] Extract Task B' representations: SST-2 × 22 frozen models × best-matching layers only
+- [ ] Extract Task A representations: 10,000 sentences × 27 models × all layers
+- [ ] Extract Task B representations: AG News test set × 27 frozen models × all layers
+- [ ] Extract Task B' representations: SST-2 × 27 frozen models × best-matching layers only
 - [ ] Run MCP for all within-architecture seed pairs (controls)
 - [ ] Run MCP for all cross-architecture pairs, Task A (Results 1, 2, 5)
 - [ ] Run MCP for all cross-architecture pairs, Task B (Result 3)
@@ -362,13 +363,13 @@ The paper's theoretical motivation draws on the following established work, cite
 | Task | Hardware | Hours |
 |------|----------|-------|
 | Pilot (Week 1) | 1 GPU | ~10-15 |
-| Train 15 models (GPT-2, Mamba, RWKV × 5 seeds) | 1-2 GPUs | ~60-80 |
+| Train 20 models (LSTM, GPT-2, Mamba, RWKV × 5 seeds) | 1-2 GPUs | ~65-85 |
 | Train 5 DEM models | 1 GPU (or CPU) | ~15-30 |
 | Representation extraction (all models, both tasks) | 1 GPU | ~4-6 |
 | Pythia inference | 1 GPU (16GB+ VRAM) | ~3-4 |
 | MCP computation (all pairs × layers × tasks × splits) | **GPU-accelerated** | ~30-50 |
 | Baseline metrics | CPU | ~5-10 |
-| **Total** | | **~130-200 GPU-hours** |
+| **Total** | | **~135-205 GPU-hours** |
 
 Feasible on 1-2 GPUs over 3-4 weeks of wall time.
 
@@ -381,7 +382,7 @@ Feasible on 1-2 GPUs over 3-4 weeks of wall time.
 | DEM doesn't converge on WikiText-103 | Medium | Medium | Try smaller model, simpler corpus (subset). If fails after 3 days of tuning, drop DEM. Paper is still strong with 3 architectures. | End of Week 1 |
 | MCP levels all give same R² (flat profile) | Low | Fatal | Would mean mapping complexity doesn't vary, killing the method. Pilot in Week 1 catches this early. If flat: rethink function class hierarchy or pivot to a different contribution. | End of Week 1 |
 | CKA and MCP give identical rankings everywhere | Low-Med | High | Focus on profile *shape* differences and task-dependence even if rankings agree. Include RBF-CKA as stronger baseline. | Week 5 |
-| Mamba/RWKV training instabilities at small scale | Low-Med | Low | Use established codebases. Drop one if needed; 3 architectures still sufficient. | Week 2 |
+| Mamba installation failure (CUDA version incompatibility) | Low-Med | Low | Train Mamba on Colab Pro if cluster CUDA < 11.6. LSTM provides trivial fallback on cluster. | Week 2 |
 | Task B truncation artifacts (AG News) | Low | Low | AG News documents are short (1-2 sentences), truncation is minimal. SST-2 backup is single-sentence. | Week 4 |
 | PCA discards nonlinear structure | Med | Med | Report WITH and WITHOUT PCA. Try random projection as alternative. If results diverge, discuss in limitations. | Week 5 |
 | Compute for MCP exceeds estimate | Med | Low | GPU-accelerate MLP stage. Subsample to 5,000 sentences if needed (report robustness to sample size). | Week 4 |
@@ -420,8 +421,9 @@ Before starting Week 1, confirm:
 
 - [ ] GPU access secured (how many, what type, for how long?)
 - [ ] WikiText-103 downloaded and tokenized
+- [ ] LSTM implementation set up and tested (trivial - standard PyTorch)
 - [ ] nanoGPT / minGPT codebase set up and tested
-- [ ] Mamba-ssm package installed and tested
+- [ ] Mamba-ssm package installed and tested (or alternative plan if unavailable)
 - [ ] RWKV implementation identified and tested
 - [ ] DEM architecture coded (even if untested on real data)
 - [ ] Pythia models downloadable from HuggingFace (verify VRAM requirements)
