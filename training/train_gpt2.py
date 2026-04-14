@@ -78,7 +78,7 @@ def main():
     parser.add_argument('--n_layer', type=int, default=12)
     parser.add_argument('--n_head', type=int, default=8)
     parser.add_argument('--n_embd', type=int, default=512)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=32)  # Reduced for GPU memory
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--final_lr', type=float, default=3e-5)
     parser.add_argument('--weight_decay', type=float, default=0.1)
@@ -166,6 +166,7 @@ def main():
     step = 0
     tokens_seen = 0
     best_val_ppl = float('inf')
+    val_ppl = float('inf')  # Initialize to prevent UnboundLocalError
     patience_counter = 0
     max_patience = 5
     

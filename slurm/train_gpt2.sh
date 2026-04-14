@@ -8,12 +8,10 @@
 #SBATCH --error=logs/gpt2_%j.err
 
 module load gcc/9.3.0
-module load python/3.11.9
 module load cuda/11.5.0
+module load pytorch/2.5.1
 
 cd /weka/home/jhasset1/Complexity_profiles
-
-source complexity/bin/activate
 
 # Train GPT-2 Small with test run (1M tokens)
 python -m training.train_gpt2 \

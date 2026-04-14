@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mcp_lstm
-#SBATCH --partition=a100
+#SBATCH --partition=nvl
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=32G
@@ -8,12 +8,10 @@
 #SBATCH --error=logs/lstm_%j.err
 
 module load gcc/9.3.0
-module load python/3.11.9
 module load cuda/11.5.0
+module load pytorch/2.5.1
 
 cd /weka/home/jhasset1/Complexity_profiles
-
-source complexity/bin/activate
 
 # Train LSTM with test run (1M tokens)
 python -m training.train_lstm \
