@@ -1,31 +1,24 @@
 #!/bin/bash
 #SBATCH --job-name=mcp_gpt2
-#SBATCH --partition=gpu
+#SBATCH --partition=nvl
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=32G
 #SBATCH --output=logs/gpt2_%j.out
 #SBATCH --error=logs/gpt2_%j.err
 
-module load python/3.10
-module load cuda/11.8
+module load gcc/9.3.0
+module load python/3.11.9
+module load cuda/11.5.0
 
-cd /path/to/Complexity_profiles
+cd /weka/home/jhasset1/Complexity_profiles
 
-# Activate environment (choose one)
-# Option 1: venv
-source venv/bin/activate
+source complexity/bin/activate
 
-# Option 2: conda (if available)
-# module load anaconda
-# conda activate mcp_env
-
-# Install dependencies if needed
-# pip install -r requirements.txt
-
-# Train GPT-2 Small
-python training/train_gpt2.py \
+# Train GPT-2 Small with test run (1M tokens)
+python -m training.train_gpt2 \
     --config configs/training_config.yaml \
     --seed 0 \
     --device cuda \
-    --checkpoint_dir checkpoints
+    --checkpoint_dir checkpoints \
+    --test_run

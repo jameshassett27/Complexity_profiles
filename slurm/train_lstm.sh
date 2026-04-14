@@ -11,7 +11,7 @@ module load gcc/9.3.0
 module load python/3.11.9
 module load cuda/11.5.0
 
-cd /path/to/Complexity_profiles
+cd /weka/home/jhasset1/Complexity_profiles
 
 source complexity/bin/activate
 
