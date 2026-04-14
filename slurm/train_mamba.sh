@@ -1,31 +1,20 @@
 #!/bin/bash
 #SBATCH --job-name=mcp_mamba
-#SBATCH --partition=gpu
+#SBATCH --partition=a100
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=32G
+#SBATCH --cpus-per-task=8
+#SBATCH --account=jvogels3
 #SBATCH --output=logs/mamba_%j.out
 #SBATCH --error=logs/mamba_%j.err
 
-module load python/3.10
-module load cuda/11.8
+cd /weka/home/jhasset1/Complexity_profiles
+source complexity/bin/activate
 
-cd /path/to/Complexity_profiles
-
-# Activate environment (choose one)
-# Option 1: venv
-source venv/bin/activate
-
-# Option 2: conda (if available)
-# module load anaconda
-# conda activate mcp_env
-
-# Install dependencies if needed
-# pip install -r requirements.txt
-
-# Train Mamba-Small
-python training/train_mamba.py \
+python -m training.train_mamba \
     --config configs/training_config.yaml \
     --seed 0 \
     --device cuda \
-    --checkpoint_dir checkpoints
+    --checkpoint_dir checkpoints \
+    --test_run
