@@ -1,0 +1,93 @@
+# MCP (Mapping Complexity Profiles) configuration
+# Based on experimental protocol v3.0
+
+# Mapping levels
+mapping_levels:
+  level_1:
+    name: "ridge_regression"
+    type: "linear"
+    alpha: 1.0
+    closed_form: true
+    
+  level_2:
+    name: "kernel_ridge_rbf"
+    type: "kernel_nonlinear"
+    alpha: 1.0
+    kernel: "rbf"
+    bandwidth: "median"  # median heuristic
+    bandwidth_multipliers: [0.5, 1.0, 2.0]  # For pilot ablation
+    
+  level_3:
+    name: "mlp_1layer"
+    type: "shallow_learned"
+    hidden_units: 512
+    activation: "gelu"
+    # Pilot ablation variants
+    ablation_hidden_units: [256, 512, 1024]
+    ablation_activations: ["gelu", "relu", "silu"]
+    
+  level_4:
+    name: "mlp_2layer"
+    type: "deep_learned"
+    hidden_units: [1024, 512]  # Funnel architecture
+    activation: "gelu"
+    dropout: 0.1
+
+# MLP training hyperparameters
+mlp_training:
+  optimizer: "AdamW"
+  lr: 5e-4
+  weight_decay: 1e-4
+  batch_size: 512
+  max_epochs: 300
+  early_stopping_patience: 20
+  
+# Data splits
+splits:
+  train: 0.6
+  val: 0.2
+  test: 0.2
+  n_splits: 5  # Number of random splits
+  stratified: true  # For Task B (classification)
+
+# Dimensionality reduction
+dimensionality:
+  max_dim: 1024
+  pca_variance: 0.95
+  report_both: true  # Report with and without PCA
+  # Alternative: random projection (preserves distances better)
+  
+# Summary statistics
+statistics:
+  asymptote: "R2_4"  # Total shared information
+  linearity_index: "R2_1 / max(R2_4, eps)"
+  kernel_gain: "(R2_2 - R2_1) / max(R2_4 - R2_1, eps)"
+  learning_gain: "(R2_4 - R2_2) / max(R2_4 - R2_1, eps)"
+  eps: 1e-8
+
+# Controls
+controls:
+  self_mapping: true  # MCP(X, X + noise)
+  same_arch_diff_seed: true  # Control for initialization
+  shuffled: true  # MCP(X, permute_rows(Y))
+  reversed: true  # MCP(Y->X) vs MCP(X->Y)
+  random_baseline: true  # MCP(random_matrix, Y)
+  permutation_test: true  # 1000 shuffles for p-values
+  n_permutations: 1000
+
+# Pilot ablation
+pilot_ablation:
+  enabled: true
+  architecture_pairs:
+    - ["gpt2_seed0", "mamba_seed0"]
+  layers: [4, 8, 12]  # Test 2-3 layers
+  vary:
+    mlp_hidden_sizes: [256, 512, 1024]
+    activations: ["gelu", "relu", "silu"]
+    kernel_bandwidths: [0.5, 1.0, 2.0]  # Multipliers of median
+  robustness_threshold: 0.05  # R² variation within ±0.05 is acceptable
+
+# GPU acceleration
+gpu:
+  accelerate_mlp: true  # Run MLP probes on GPU
+  batch_parallelism: true  # Process multiple splits in parallel if memory allows

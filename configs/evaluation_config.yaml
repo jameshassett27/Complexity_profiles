@@ -1,0 +1,69 @@
+# Evaluation configuration for Tasks A and B
+# Based on experimental protocol v3.0
+
+# Task A: Language Modeling Representations (unstructured)
+task_a:
+  name: "language_modeling"
+  corpus: "WikiText-103"
+  subset: "validation"
+  n_sentences: 10000
+  seed: 42  # Fixed seed for reproducibility
+  extraction:
+    position: "final_token"  # Hidden state at final token position
+    layers: "all"  # All layers
+  
+# Task B: Topic Classification Representations (structured)
+task_b:
+  name: "topic_classification"
+  primary_dataset: "AG News"
+  classes: ["World", "Sports", "Business", "Sci/Tech"]
+  n_train: 120000
+  n_test: 7600
+  extraction:
+    model_frozen: true  # No fine-tuning
+    position: "final_token"
+    layers: "all"
+  # Supplementary dataset for robustness
+  supplementary_dataset: "SST-2"
+  supplementary_classes: ["Negative", "Positive"]
+  
+# Pre-trained reference models (inference only)
+reference_models:
+  pythia_410m:
+    checkpoint: "EleutherAI/pythia-410m"
+    step: 143000
+    size: "410M"
+    purpose: "Scale reference, same family as GPT-2"
+    
+  pythia_160m:
+    checkpoint: "EleutherAI/pythia-160m"
+    step: 143000
+    size: "160M"
+    purpose: "Intermediate scale reference"
+
+# Extraction settings
+extraction:
+  batch_size: 128
+  device: "cuda"
+  save_format: "npz"  # Compressed numpy format
+  cache_dir: "./results/representations"
+  
+# Baseline metrics
+baselines:
+  - "linear_cka"
+  - "rbf_cka"
+  - "rsa_spearman"
+  - "procrustes_distance"
+  - "effective_dimensionality"
+  - "svcca"
+
+# Analysis settings
+analysis:
+  best_matching_layers: true  # Find layer pair maximizing R²_4
+  statistical_tests:
+    - "spearman_correlation"  # CKA vs L rankings
+    - "kruskal_wallis"  # Hierarchy test
+    - "mann_whitney"  # Pairwise comparisons
+    - "paired_wilcoxon"  # Task A vs Task B
+    - "permutation_test"  # Shape differences
+  correction: "bonferroni"
