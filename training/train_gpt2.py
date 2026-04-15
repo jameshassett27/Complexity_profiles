@@ -246,6 +246,11 @@ def main():
         'tokens_seen': tokens_seen
     }, final_checkpoint_path)
     
+    # Always evaluate at end of training
+    val_ppl = evaluate(model, val_loader, args.device)
+    if val_ppl < best_val_ppl:
+        best_val_ppl = val_ppl
+
     print(f"\nTraining complete!")
     print(f"Final validation perplexity: {val_ppl:.2f}")
     print(f"Best validation perplexity: {best_val_ppl:.2f}")
