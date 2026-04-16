@@ -44,35 +44,28 @@ def train_epoch(model, dataloader, optimizer, scheduler, device, grad_clip=1.0):
     model.train()
     total_loss = 0.0
     total_tokens = 0
-    
+
     for batch_idx, (x, y) in enumerate(tqdm(dataloader, desc="Training")):
         x, y = x.to(device), y.to(device)
-        
-        # Forward pass
+
         logits, _ = model(x)
-        loss = nn.functional.cross_entropy(
-            logits.view(-1, logits.size(-1)), 
-            y.view(-1)
-        )
-        
-        # Backward pass
+        loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+
         optimizer.zero_grad()
         loss.backward()
-        
-        # Gradient clipping
+
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-        
+
         optimizer.step()
         scheduler.step()
-        
-        # Statistics
+
         total_loss += loss.item() * x.size(0)
         total_tokens += x.size(0)
-    
-    avg_loss = total_loss / len(dataloader)
+
+    avg_loss = total_loss / total_tokens
     perplexity = np.exp(avg_loss)
-    
+
     return perplexity
 
 
@@ -81,23 +74,20 @@ def evaluate(model, dataloader, device):
     model.eval()
     total_loss = 0.0
     total_tokens = 0
-    
+
     with torch.no_grad():
         for x, y in tqdm(dataloader, desc="Evaluation"):
             x, y = x.to(device), y.to(device)
-            
+
             logits, _ = model(x)
-            loss = nn.functional.cross_entropy(
-                logits.view(-1, logits.size(-1)), 
-                y.view(-1)
-            )
-            
+            loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+
             total_loss += loss.item() * x.size(0)
             total_tokens += x.size(0)
-    
-    avg_loss = total_loss / len(dataloader)
+
+    avg_loss = total_loss / total_tokens
     perplexity = np.exp(avg_loss)
-    
+
     return perplexity
 
 

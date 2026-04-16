@@ -46,9 +46,9 @@ def train_epoch(model, dataloader, optimizer, scheduler, device, grad_clip=1.0):
         total_loss += loss.item() * x.size(0)
         total_tokens += x.size(0)
     
-    avg_loss = total_loss / len(dataloader)
+    avg_loss = total_loss / total_tokens
     perplexity = np.exp(avg_loss)
-    
+
     return perplexity
 
 
@@ -57,23 +57,23 @@ def evaluate(model, dataloader, device):
     model.eval()
     total_loss = 0.0
     total_tokens = 0
-    
+
     with torch.no_grad():
         for x, y in tqdm(dataloader, desc="Evaluation"):
             x, y = x.to(device), y.to(device)
-            
+
             logits = model(x)
             logits = logits.view(-1, logits.size(-1))
             y = y.view(-1)
-            
+
             loss = nn.functional.cross_entropy(logits, y, ignore_index=-1)
-            
+
             total_loss += loss.item() * x.size(0)
             total_tokens += x.size(0)
-    
-    avg_loss = total_loss / len(dataloader)
+
+    avg_loss = total_loss / total_tokens
     perplexity = np.exp(avg_loss)
-    
+
     return perplexity
 
 
