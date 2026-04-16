@@ -109,7 +109,7 @@ def extract_lstm(checkpoint_path, layers, device, n_batches):
 
     model = LSTMLanguageModel(
         vocab_size=50257, embedding_dim=512,
-        hidden_dim=512, num_layers=4, dropout=0.1
+        hidden_dim=512, num_layers=2, dropout=0.1
     )
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device).eval()

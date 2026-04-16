@@ -123,9 +123,18 @@ def main():
             results['cross_architecture'].append(run_mcp_pair(pipeline, X, Y, name))
 
     # Save results
+    def to_serializable(obj):
+        if isinstance(obj, (np.floating, np.float32, np.float64)):
+            return float(obj)
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        raise TypeError(f'Object of type {type(obj).__name__} is not JSON serializable')
+
     out_path = os.path.join(args.output_dir, 'mcp_results.json')
     with open(out_path, 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(results, f, indent=2, default=to_serializable)
     print(f"\nResults saved to {out_path}")
 
     # Summary table
