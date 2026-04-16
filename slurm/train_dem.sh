@@ -9,12 +9,11 @@
 #SBATCH --output=logs/dem_%j.out
 #SBATCH --error=logs/dem_%j.err
 
-cd /weka/home/jhasset1/Complexity_profiles
+cd /home/jhasset1/Complexity_profiles
 source complexity/bin/activate
 
 python -m training.train_dem \
     --config configs/training_config.yaml \
     --seed 0 \
     --device cuda \
-    --checkpoint_dir checkpoints \
-    --test_run
+    --checkpoint_dir checkpoints

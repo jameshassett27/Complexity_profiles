@@ -1,18 +1,18 @@
 #!/bin/bash
-#SBATCH --job-name=mcp_lstm
+#SBATCH --job-name=mcp_rwkv
 #SBATCH --partition=a100
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
 #SBATCH --account=jvogels3
-#SBATCH --output=logs/lstm_%j.out
-#SBATCH --error=logs/lstm_%j.err
+#SBATCH --output=logs/rwkv_%j.out
+#SBATCH --error=logs/rwkv_%j.err
 
 cd /home/jhasset1/Complexity_profiles
 source complexity/bin/activate
 
-python -m training.train_lstm \
+python -m training.train_rwkv \
     --config configs/training_config.yaml \
     --seed 0 \
     --device cuda \

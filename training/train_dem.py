@@ -194,15 +194,12 @@ def main():
             tokens_seen += x.size(0) * x.size(1)
             
             if step % args.eval_interval == 0:
-                # Evaluate
-                train_ppl = train_epoch(model, train_loader, optimizer, scheduler, args.device)
                 val_ppl = evaluate(model, val_loader, args.device)
-                
+
                 print(f"\nStep {step}, Tokens: {tokens_seen / 1e6:.1f}M")
-                print(f"  Train PPL: {train_ppl:.2f}")
                 print(f"  Val PPL:   {val_ppl:.2f}")
                 print(f"  LR:        {optimizer.param_groups[0]['lr']:.6f}")
-                
+
                 # Save checkpoint
                 if step % args.save_interval == 0:
                     checkpoint_path = os.path.join(
@@ -215,7 +212,14 @@ def main():
                         'optimizer_state_dict': optimizer.state_dict(),
                         'scheduler_state_dict': scheduler.state_dict(),
                         'val_ppl': val_ppl,
-                        'tokens_seen': tokens_seen
+                        'tokens_seen': tokens_seen,
+                        'config': {
+                            'vocab_size': 50257,
+                            'model_dim': args.model_dim,
+                            'n_mixing_blocks': args.n_mixing_blocks,
+                            'buffer_size': 64,
+                            'max_seq_len': 256,
+                        },
                     }, checkpoint_path)
                     print(f"  Saved checkpoint: {checkpoint_path}")
                 
@@ -236,7 +240,12 @@ def main():
         if patience_counter >= max_patience:
             break
     
-    # Final save
+    # Always evaluate at end of training
+    val_ppl = evaluate(model, val_loader, args.device)
+    if val_ppl < best_val_ppl:
+        best_val_ppl = val_ppl
+
+    # Final save (after final eval so val_ppl is accurate)
     final_checkpoint_path = os.path.join(
         args.checkpoint_dir,
         f'dem_seed{args.seed}_final.pt'
@@ -247,13 +256,15 @@ def main():
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
         'val_ppl': val_ppl,
-        'tokens_seen': tokens_seen
+        'tokens_seen': tokens_seen,
+        'config': {
+            'vocab_size': 50257,
+            'model_dim': args.model_dim,
+            'n_mixing_blocks': args.n_mixing_blocks,
+            'buffer_size': 64,
+            'max_seq_len': 256,
+        },
     }, final_checkpoint_path)
-    
-    # Always evaluate at end of training
-    val_ppl = evaluate(model, val_loader, args.device)
-    if val_ppl < best_val_ppl:
-        best_val_ppl = val_ppl
 
     print(f"\nTraining complete!")
     print(f"Final validation perplexity: {val_ppl:.2f}")

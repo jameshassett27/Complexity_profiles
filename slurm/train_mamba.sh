@@ -16,5 +16,4 @@ python -m training.train_mamba \
     --config configs/training_config.yaml \
     --seed 0 \
     --device cuda \
-    --checkpoint_dir checkpoints \
-    --test_run
+    --checkpoint_dir checkpoints
