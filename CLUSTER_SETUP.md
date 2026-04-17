@@ -1,125 +1,89 @@
-# JHU DSAI Cluster Setup Guide
+# JHU DSAI Cluster Setup
 
-## CUDA and PyTorch Configuration
+## TL;DR
 
-### Critical Issue: CUDA Version Mismatch
+- PyTorch installed via pip with bundled CUDA 12.1 works fine
+- **Jobs MUST specify `#SBATCH --account=jvogels3`** — without it, the job runs but SLURM does not bind `/dev/nvidia*` to the cgroup, so `torch.cuda.is_available()` returns False
+- Do NOT use the cluster's `pytorch/2.5.1` module (Lmod error, broken)
+- No `module load cuda/*` needed — torch wheels bundle their own CUDA libraries; the driver is enough
 
-**Problem:**
-- Installing PyTorch via pip (`pip install torch`) often installs a version compiled for a newer CUDA version than the cluster supports
-- This causes `RuntimeError: The NVIDIA driver on your system is too old` when trying to use CUDA
-- The cluster has CUDA 11.5, but pip may install PyTorch compiled for CUDA 11.7, 11.8, or 13.0
+## Venv
 
-**Solution:**
-- Use the cluster's PyTorch module instead of installing via pip
-- The cluster provides `pytorch/2.5.1` which is pre-configured to work with the cluster's GPU setup
-
-### Correct Module Loading Order
-
+Located at `/weka/home/jhasset1/Complexity_profiles/complexity/` (Python 3.11). Activate with:
 ```bash
-module load gcc/9.3.0
-module load cuda/11.5.0
-module load pytorch/2.5.1
+source complexity/bin/activate
 ```
 
-**Important:** Load modules in this specific order. PyTorch must be loaded after CUDA.
+PyTorch installed via:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
+Results in `torch 2.5.1+cu121` with bundled NVIDIA CUDA 12.1 libs. Driver on compute nodes is 560.35.03 (CUDA 12.6), fully compatible.
 
-### CUDA Availability
+## SLURM script template
 
-- CUDA is NOT available on the login node
-- CUDA IS available on GPU compute nodes (nvl, a100, h100 partitions)
-- Always test CUDA on a compute node, not the login node
+```bash
+#!/bin/bash
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:1
+#SBATCH --time=24:00:00
+#SBATCH --mem=32G
+#SBATCH --cpus-per-task=8
+#SBATCH --account=jvogels3           # REQUIRED for GPU binding
+#SBATCH --output=logs/%x_%j.out
 
-### Test CUDA on Compute Node
+cd /weka/home/jhasset1/Complexity_profiles
+source complexity/bin/activate
+
+python -m training.train_dem --config configs/training_config.yaml
+```
+
+## Partitions
+
+- `a100` — 8x A100 80GB per node
+- `h100` — 4x H100 per node
+- `nvl` — 4x H100 NVL per node
+- `l40s` — 8x L40S per node
+- `cpu` — no GPUs
+
+Check availability: `sinfo -o '%P %a %D %T %G'`
+
+## How we debugged "cuda available: False"
+
+Symptoms:
+- `nvidia-smi` works inside the job (shows assigned GPU)
+- `torch.cuda.is_available()` → False
+- `libcuda.cuInit(0)` → error 3 (`CUDA_ERROR_NOT_INITIALIZED`)
+- `cat /dev/nvidia0` → `Invalid argument`
+- SLURM cgroup: `3:devices:/slurm/.../task_0`
+
+Root cause: job submitted without `--account=jvogels3` lands in a QOS that does not grant GPU device access via the devices cgroup. `nvidia-smi` still works because NVML uses a different kernel path, which made the failure mode confusing.
+
+Fix: add `#SBATCH --account=jvogels3`.
+
+## What does NOT work (skip these rabbit holes)
+
+- `module load pytorch/2.5.1` — Lmod error: "MT:add_property(): system property table has no entry for: environ"
+- `module load cuda/11.5.0` — not needed; also too old for torch cu121
+- `module load cuda/12.6.3` — module doesn't exist on this cluster
+- Installing torch against older CUDA to match `cuda/11.5` module — driver is 12.6, so modern wheels work fine
+
+## Verifying setup on a compute node
 
 ```bash
 cat > test_cuda.sh << 'EOF'
 #!/bin/bash
-#SBATCH --partition=nvl
+#SBATCH --partition=a100
 #SBATCH --gres=gpu:1
 #SBATCH --time=00:05:00
-#SBATCH --output=cuda_test.out
-
-module load gcc/9.3.0
-module load cuda/11.5.0
-module load pytorch/2.5.1
-
-python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
-EOF
-
-sbatch test_cuda.sh
-cat cuda_test.out
-```
-
-### Installing Additional Dependencies
-
-After loading the pytorch module, install additional packages:
-
-```bash
-pip install numpy scipy scikit-learn matplotlib seaborn pandas tqdm wandb transformers datasets tokenizers einops pyyaml tensorboard
-```
-
-**Note:** You may see dependency conflict warnings from other packages in the cluster's environment (tensorflow, etc.). These can be ignored as they won't affect PyTorch training.
-
-### SLURM Script Configuration
-
-SLURM scripts should load modules in the correct order:
-
-```bash
-#!/bin/bash
-#SBATCH --partition=nvl
-#SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
-#SBATCH --mem=32G
-
-module load gcc/9.3.0
-module load cuda/11.5.0
-module load pytorch/2.5.1
+#SBATCH --account=jvogels3
+#SBATCH --output=test_cuda.out
 
 cd /weka/home/jhasset1/Complexity_profiles
-
-python -m training.train_dem \
-    --config configs/training_config.yaml \
-    --seed 0 \
-    --device cuda \
-    --checkpoint_dir checkpoints \
-    --test_run
+source complexity/bin/activate
+python -c "import torch; print('cuda:', torch.cuda.is_available(), 'device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)"
+EOF
+sbatch test_cuda.sh
 ```
 
-### Available GPU Partitions
-
-- `nvl`: NVL GPUs (2 idle GPUs often available)
-- `a100`: A100 GPUs (currently all busy)
-- `h100`: H100 GPUs (currently all busy)
-- `l40s`: L40S GPUs
-
-Check availability with: `sinfo -o "%P %A %l %D %T"`
-
-### Why Not Use venv?
-
-- Using the cluster's pytorch module is preferred over creating a venv
-- The cluster's module is pre-configured for the cluster's GPU setup
-- Avoids CUDA version mismatches
-- Fewer installation issues
-
-### Common Errors and Solutions
-
-**Error:** `RuntimeError: The NVIDIA driver on your system is too old`
-- **Cause:** PyTorch compiled for newer CUDA version than cluster supports
-- **Solution:** Use cluster's pytorch module instead of pip install
-
-**Error:** `torch.cuda.is_available()` returns False on login node
-- **Cause:** CUDA not available on login node (normal)
-- **Solution:** Test on compute node via SLURM job
-
-**Error:** Module loading order issues
-- **Cause:** Wrong module loading sequence
-- **Solution:** Always load: gcc → cuda → pytorch
-
-### Summary Checklist
-
-- [ ] Load modules in order: gcc/9.3.0 → cuda/11.5.0 → pytorch/2.5.1
-- [ ] Test CUDA on compute node, not login node
-- [ ] Use cluster's pytorch module, don't pip install torch
-- [ ] Install other dependencies after loading pytorch module
-- [ ] Configure SLURM scripts with correct module loads
-- [ ] Use nvl partition for faster queue times (often has idle GPUs)
+Note: `torch.cuda.is_available()` is always False on the login node — this is normal, the login node has no GPU. Always test via sbatch/srun.
