@@ -15,14 +15,16 @@ from transformers import RwkvConfig, RwkvForCausalLM
 from data.wikitext103 import get_dataloader
 
 
-def evaluate(model, dataloader, device):
-    """Evaluate model."""
+def evaluate(model, dataloader, device, max_batches=200):
+    """Evaluate model on up to max_batches batches."""
     model.eval()
     total_loss = 0.0
     total_tokens = 0
 
     with torch.no_grad():
-        for x, y in tqdm(dataloader, desc="Evaluation"):
+        for i, (x, y) in enumerate(tqdm(dataloader, desc="Evaluation")):
+            if i >= max_batches:
+                break
             x, y = x.to(device), y.to(device)
 
             outputs = model(input_ids=x, labels=y)
@@ -80,6 +82,17 @@ def main():
     )
     model = RwkvForCausalLM(config)
     model = model.to(args.device)
+
+    # HF RWKV has inplace ops in time-mixing that break autograd.
+    # Register forward hooks to clone outputs before they can be modified inplace.
+    def _clone_hook(module, input, output):
+        if isinstance(output, torch.Tensor):
+            return output.clone()
+        return output
+
+    for block in model.rwkv.blocks:
+        block.attention.register_forward_hook(_clone_hook)
+        block.feed_forward.register_forward_hook(_clone_hook)
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model parameters: {n_params / 1e6:.2f}M")
