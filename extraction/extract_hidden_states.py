@@ -11,7 +11,7 @@ import os
 import sys
 import argparse
 from tqdm import tqdm
-from transformers import GPT2LMHeadModel, GPT2Config
+from transformers import GPT2LMHeadModel, GPT2Config, RwkvConfig, RwkvForCausalLM
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -162,6 +162,50 @@ def extract_lstm(checkpoint_path, layers, device, n_batches):
     return {l: np.concatenate(layer_states[l], axis=0) for l in layers}, layer_to_idx
 
 
+def extract_rwkv(checkpoint_path, layers, device, n_batches):
+    """Extract RWKV final-token hidden states.
+
+    RwkvForCausalLM with output_hidden_states=True returns a tuple of length
+    num_hidden_layers + 1: hidden_states[0] = embedding, hidden_states[i] = after block i.
+    Requested layers beyond num_hidden_layers are clamped to the final block.
+    """
+    print(f"Loading RWKV from {checkpoint_path}...")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+
+    config = RwkvConfig(
+        vocab_size=50257,
+        context_length=256,
+        hidden_size=512,
+        num_hidden_layers=12,
+        attention_hidden_size=512,
+        intermediate_size=512 * 4,
+        layer_norm_epsilon=1e-5,
+        rescale_every=0,
+        tie_word_embeddings=False,
+    )
+    model = RwkvForCausalLM(config)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.to(device).eval()
+
+    max_block = config.num_hidden_layers  # 12
+    layer_to_idx = {l: min(l, max_block) for l in layers}
+
+    loader = get_dataloader('validation', sequence_length=256, batch_size=32, shuffle=False, seed=42)
+    layer_states = {l: [] for l in layers}
+
+    with torch.no_grad():
+        for batch_idx, (x, _) in enumerate(tqdm(loader, desc="RWKV extraction")):
+            if batch_idx >= n_batches:
+                break
+            x = x.to(device)
+            outputs = model(input_ids=x, output_hidden_states=True)
+            for l in layers:
+                idx = layer_to_idx[l]
+                layer_states[l].append(final_token(outputs.hidden_states[idx]))
+
+    return {l: np.concatenate(layer_states[l], axis=0) for l in layers}, layer_to_idx
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoints')
@@ -171,8 +215,8 @@ def main():
                         help='Number of validation batches (32 samples each; 50 = ~1600 samples)')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--models', type=str, nargs='+',
-                        default=['dem', 'gpt2', 'lstm'],
-                        choices=['dem', 'gpt2', 'lstm'])
+                        default=['dem', 'gpt2', 'lstm', 'rwkv'],
+                        choices=['dem', 'gpt2', 'lstm', 'rwkv'])
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -181,6 +225,7 @@ def main():
         'dem':  (extract_dem,  'dem_seed0_final.pt'),
         'gpt2': (extract_gpt2, 'gpt2_seed0_final.pt'),
         'lstm': (extract_lstm, 'lstm_seed0_final.pt'),
+        'rwkv': (extract_rwkv, 'rwkv_seed0_final.pt'),
     }
 
     layer_map_summary = {}

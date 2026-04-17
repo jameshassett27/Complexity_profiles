@@ -19,12 +19,12 @@ python -m extraction.extract_hidden_states \
     --layers 4 8 12 \
     --n_batches 50 \
     --device cuda \
-    --models dem gpt2 lstm
+    --models dem gpt2 lstm rwkv
 
 echo "=== Step 2: Run MCP pipeline ==="
 python -m mcp.run_mcp \
     --hidden_states_dir results/hidden_states \
     --output_dir results/mcp \
     --layers 4 8 12 \
-    --models dem gpt2 lstm \
+    --models dem gpt2 lstm rwkv \
     --device cuda
