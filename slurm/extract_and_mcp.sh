@@ -28,3 +28,10 @@ python -m mcp.run_mcp \
     --layers 4 8 12 \
     --models dem gpt2 lstm rwkv \
     --device cuda
+
+echo "=== Step 3: Run CKA baseline ==="
+python -m baselines.run_cka \
+    --hidden_states_dir results/hidden_states \
+    --output_dir results/cka \
+    --layers 4 8 12 \
+    --models dem gpt2 lstm rwkv

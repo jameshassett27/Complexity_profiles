@@ -134,10 +134,16 @@ class MCPPipeline:
         
         # Split data
         X_train, X_val, X_test, Y_train, Y_val, Y_test = self.split_data(X, Y, stratify)
-        
+
+        # Z-score standardize: fit on train, apply to all splits
+        X_mean, X_std = X_train.mean(axis=0), X_train.std(axis=0) + 1e-8
+        Y_mean, Y_std = Y_train.mean(axis=0), Y_train.std(axis=0) + 1e-8
+        X_train, X_val, X_test = (X_train - X_mean) / X_std, (X_val - X_mean) / X_std, (X_test - X_mean) / X_std
+        Y_train, Y_val, Y_test = (Y_train - Y_mean) / Y_std, (Y_val - Y_mean) / Y_std, (Y_test - Y_mean) / Y_std
+
         d_source = X_train.shape[1]
         d_target = Y_train.shape[1]
-        
+
         # Level 1: Ridge regression
         mapping1 = RidgeRegressionMapping(alpha=self.ridge_alpha)
         mapping1.fit(X_train, Y_train)

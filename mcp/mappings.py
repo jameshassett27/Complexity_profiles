@@ -89,15 +89,18 @@ class KernelRidgeMapping:
             X: [n_samples, d_source]
             Y: [n_samples, d_target]
         """
-        # Compute bandwidth using median heuristic on a subsample.
-        # Normalize by sqrt(d) so gamma doesn't collapse to ~0 in high dimensions
-        # (curse of dimensionality: raw pairwise distances ~ sqrt(d) * sigma).
+        # Median heuristic: gamma = 1 / median(squared_distances).
+        # Using squared distances directly avoids scale issues from sqrt in high-d.
+        # Subsample for speed.
         if self.bandwidth == 'median':
             n = X.shape[0]
-            sub = X[np.random.default_rng(0).choice(n, min(n, 500), replace=False)]
-            pairwise_dist = pdist(sub, metric='euclidean')
-            bandwidth = np.median(pairwise_dist) / np.sqrt(X.shape[1])
-            self.gamma_ = 1.0 / (2 * bandwidth ** 2)
+            rng = np.random.default_rng(0)
+            sub = X[rng.choice(n, min(n, 500), replace=False)]
+            sq_dists = pdist(sub, metric='sqeuclidean')
+            median_sq = np.median(sq_dists)
+            if median_sq < 1e-10:
+                median_sq = 1.0
+            self.gamma_ = 1.0 / median_sq
         else:
             self.gamma_ = 1.0 / (2 * self.bandwidth ** 2)
         
